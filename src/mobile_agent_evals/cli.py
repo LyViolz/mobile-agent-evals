@@ -116,6 +116,48 @@ def report_markdown(result: dict) -> str:
     return "\n".join(lines)
 
 
+def summarize_suite(suite_id: str, results: list[dict]) -> dict:
+    if not results:
+        raise ValueError("Suite must contain at least one case")
+    passed_count = sum(bool(result["passed"]) for result in results)
+    return {
+        "suite": suite_id,
+        "passed": passed_count == len(results),
+        "passed_count": passed_count,
+        "total_count": len(results),
+        "cases": results,
+    }
+
+
+def suite_markdown(result: dict) -> str:
+    lines = [f"# {result['suite']}", "", f"Result: {result['passed_count']}/{result['total_count']} passed", "", "| Task | Result | Baseline failing | Candidate passing |", "| --- | --- | --- | --- |"]
+    for case in result["cases"]:
+        lines.append(
+            f"| {case['task']} | {'PASS' if case['passed'] else 'FAIL'} | "
+            f"{case.get('baseline_was_failing', False)} | {case.get('candidate_now_passing', False)} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def write_report(output_dir: Path, result: dict, markdown: str) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "report.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    (output_dir / "report.md").write_text(markdown, encoding="utf-8")
+
+
+def evaluate_suite(suite_path: Path) -> dict:
+    manifest = json.loads(suite_path.read_text(encoding="utf-8"))
+    cases = manifest["cases"]
+    if not isinstance(cases, list) or not cases:
+        raise ValueError("Suite must contain a non-empty cases array")
+    results = []
+    for case in cases:
+        task_path = (suite_path.parent / case["task"]).resolve()
+        patch_path = (suite_path.parent / case["patch"]).resolve()
+        results.append(evaluate(task_path, patch_path))
+    return summarize_suite(manifest["id"], results)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -123,15 +165,24 @@ def main() -> int:
     eval_parser.add_argument("--task", type=Path, required=True)
     eval_parser.add_argument("--patch", type=Path, required=True)
     eval_parser.add_argument("--output-dir", type=Path, required=True)
+    suite_parser = subparsers.add_parser("suite")
+    suite_parser.add_argument("--manifest", type=Path, required=True)
+    suite_parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "evaluate":
         try:
             result = evaluate(args.task.resolve(), args.patch.resolve())
         except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
             parser.error(str(error))
-        args.output_dir.mkdir(parents=True, exist_ok=True)
-        (args.output_dir / "report.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-        (args.output_dir / "report.md").write_text(report_markdown(result), encoding="utf-8")
+        write_report(args.output_dir, result, report_markdown(result))
+        print(args.output_dir / "report.md")
+        return 0 if result["passed"] else 1
+    if args.command == "suite":
+        try:
+            result = evaluate_suite(args.manifest.resolve())
+        except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+            parser.error(str(error))
+        write_report(args.output_dir, result, suite_markdown(result))
         print(args.output_dir / "report.md")
         return 0 if result["passed"] else 1
     return 2

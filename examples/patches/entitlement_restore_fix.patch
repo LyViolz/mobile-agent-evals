@@ -1,0 +1,13 @@
+diff --git a/lib/restore_state.dart b/lib/restore_state.dart
+--- a/lib/restore_state.dart
++++ b/lib/restore_state.dart
+@@ -5,7 +5,7 @@ RestoreState restoreState({
+   required bool storeHasEntitlement,
+   required bool ledgerHasPremium,
+ }) {
++  if (!storeHasEntitlement) return RestoreState.expired;
+   if (ledgerHasPremium) return RestoreState.active;
+-  if (storeHasEntitlement) return RestoreState.awaitingSync;
+-  return RestoreState.expired;
++  return RestoreState.awaitingSync;
+ }
