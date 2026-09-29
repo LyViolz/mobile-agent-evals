@@ -1,0 +1,12 @@
+diff --git a/lib/reminder_schedule.dart b/lib/reminder_schedule.dart
+--- a/lib/reminder_schedule.dart
++++ b/lib/reminder_schedule.dart
+@@ -16,5 +16,7 @@
+   }
+ 
+   final daysAhead = (weekday - now.weekday + 7) % 7;
+-  return DateTime(now.year, now.month, now.day + daysAhead, hour, minute);
++  final candidate = DateTime(now.year, now.month, now.day + daysAhead, hour, minute);
++  if (candidate.isAfter(now)) return candidate;
++  return DateTime(now.year, now.month, now.day + 7, hour, minute);
+ }

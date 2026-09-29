@@ -1,0 +1,10 @@
+{
+  "id": "weekly-reminder-rollover",
+  "fixture": "reminder_fixture",
+  "allowed_paths": ["lib/"],
+  "timeout_seconds": 180,
+  "checks": [
+    {"name": "unit", "command": ["flutter", "test", "--no-pub"]},
+    {"name": "analyze", "command": ["flutter", "analyze", "--no-pub"]}
+  ]
+}
